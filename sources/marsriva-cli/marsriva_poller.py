@@ -69,6 +69,13 @@ REGISTER_MAP = [
     (166,  2, "grid_frequency",         100,   False),  # ✓ ÷100 Hz
     (166, 16, "grid_energy_counter",      1,   False),  # plausible ≈kWh×100
 
+    # --- Frame 188: Aggregate — operating-mode state flags (raw) ---
+    # Exposed raw: the documented value→label mapping is contradicted by field
+    # captures (e.g. 2882 occurs with the grid connected, not "on battery"), so
+    # we surface the raw flags rather than a guessed label. See protocol.md.
+    (188,  3, "mode_state",             1,  False),  # primary operating-mode flag (raw)
+    (188,  4, "mode_state_secondary",   1,  False),  # companion mode flag (raw)
+
     # --- Frame 128: Configuration mirror (read-only echo of the LCD settings) ---
     # All confirmed against the LCD; the diagnostic port is read-only so these
     # are exposed as sensors, not writable controls.

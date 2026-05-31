@@ -39,6 +39,8 @@
             "grid_power":              "grid_power",
             "grid_frequency":          "grid_frequency",
             "grid_energy_counter":     "grid_energy_counter",
+            "mode_state":              "mode_state",
+            "mode_state_secondary":    "mode_state_secondary",
             "cfg_max_grid_charge_current":  "cfg_max_grid_charge_current",
             "cfg_output_source_priority":   "cfg_output_source_priority",
             "cfg_battery_low_voltage":      "cfg_battery_low_voltage",

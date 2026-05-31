@@ -69,6 +69,10 @@ registerTopic "grid_power"              "W"   "transmission-tower"
 registerTopic "grid_frequency"          "Hz"  "sine-wave"
 registerTopic "grid_energy_counter"     ""    "counter"
 
+# --- Operating state (raw mode flags; mapping not yet confirmed, see protocol.md) ---
+registerTopic "mode_state"              ""    "state-machine"
+registerTopic "mode_state_secondary"    ""    "information-outline"
+
 # --- Configuration mirror (read-only settings echoed by the inverter) ---
 registerTopic "cfg_max_grid_charge_current"   "A"   "current-ac"
 registerTopic "cfg_output_source_priority"    ""    "cog-outline"

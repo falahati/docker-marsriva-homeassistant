@@ -75,6 +75,10 @@ push "grid_power"
 push "grid_frequency"
 push "grid_energy_counter"
 
+# --- Operating state ---
+push "mode_state"
+push "mode_state_secondary"
+
 # --- Configuration mirror (read-only settings) ---
 push "cfg_max_grid_charge_current"
 push "cfg_output_source_priority"
