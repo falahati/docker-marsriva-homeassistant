@@ -68,6 +68,28 @@ REGISTER_MAP = [
     (166,  1, "grid_power",               1,   False),  # ✓ W
     (166,  2, "grid_frequency",         100,   False),  # ✓ ÷100 Hz
     (166, 16, "grid_energy_counter",      1,   False),  # plausible ≈kWh×100
+
+    # --- Frame 128: Configuration mirror (read-only echo of the LCD settings) ---
+    # All confirmed against the LCD; the diagnostic port is read-only so these
+    # are exposed as sensors, not writable controls.
+    (128,  5, "cfg_max_grid_charge_current",   1,  False),  # A          (#6  Max grid charge)
+    (128,  7, "cfg_output_source_priority",    1,  False),  # enum       (#3  Output source priority)
+    (128,  8, "cfg_battery_low_voltage",      10,  False),  # ÷10 V      (#10 Battery low)
+    (128,  9, "cfg_battery_shutdown_voltage", 10,  False),  # ÷10 V      (#11 Battery shutdown)
+    (128, 10, "cfg_cv_charge_voltage",        10,  False),  # ÷10 V      (#12 CV mode voltage)
+    (128, 11, "cfg_charge_voltage",           10,  False),  # ÷10 V      (#13 Charge V mode)
+    (128, 12, "cfg_back_to_grid_voltage",     10,  False),  # ÷10 V      (#8  Back to grid V)
+    (128, 13, "cfg_back_to_battery_voltage",  10,  False),  # ÷10 V      (#9  Back to battery V)
+    (128, 14, "cfg_grid_low_voltage",          1,  False),  # V          (#14 Grid low)
+    (128, 15, "cfg_grid_high_voltage",         1,  False),  # V          (#15 Grid high)
+    (128, 19, "cfg_equalization_voltage",     10,  False),  # ÷10 V      (#16 Equalization V)
+    (128, 21, "cfg_equalization_delay",        1,  False),  # min        (#17 Eq. delay)
+    (128, 22, "cfg_equalization_interval",     1,  False),  # days       (#18 Eq. interval)
+    (128, 24, "cfg_out2_disable_voltage",     10,  False),  # ÷10 V      (#20 OUT2 disable V)
+    (128, 28, "cfg_max_grid_tie_power",       10,  False),  # ÷10 kW     (#19 Max grid-tie)
+    (128, 32, "cfg_low_soc_shutdown",          1,  False),  # %          (#22 Low SOC shutdown)
+    (128, 33, "cfg_high_soc_to_battery",       1,  False),  # %          (#23 High SOC -> battery)
+    (128, 34, "cfg_low_soc_to_grid",           1,  False),  # %          (#24 Low SOC -> grid)
 ]
 
 # Build a lookup: (frame_len, reg_index) → (json_key, scale, signed)
