@@ -1,90 +1,50 @@
-# You will need to merge with your own Home Assistant configuration.yml file...
+# Marsriva MR-SPF6.5K-LP1-TL20E — Home Assistant configuration example
+#
+# Sensors are registered automatically via MQTT discovery when the container starts.
+# They will appear in Home Assistant as sensor.marsriva_<field_name>.
+#
+# No manual sensor configuration is needed — the entries below are provided
+# only as a reference showing what gets auto-discovered.
+#
+# Merge the relevant parts into your existing configuration.yaml if needed.
 
-input_select:
-  solar_output_source_priority:
-    name: Solar Output Source Priority
-    options:
-      - POP00 (Utility first)
-      - POP01 (Solar first)
-      - POP02 (SBU)
+# Example: manually define a sensor (not required if MQTT discovery is enabled)
+# mqtt:
+#   sensor:
+#     - name: "marsriva_bms_soc"
+#       state_topic: "homeassistant/sensor/marsriva_bms_soc"
+#       unit_of_measurement: "%"
+#       icon: "mdi:battery-outline"
 
-  solar_charger_priority:
-    name: Solar Charger Priority Order
-    options:
-      - PCP00 (Utility first)
-      - PCP01 (Solar first)
-      - PCP02 (Solar and utility)
-      - PCP03 (Solar only)
-
-
-# Automations of Solar PV Inverter (such as when to charge batteries off grid / from PV etc)...
-# This will automatically fire off the event to the inverter when changed in the UI.
-automation:
-- id: 'set_solar_output_source'
-  alias: Solar Trigger Output Source Change
-  trigger:
-    platform: state
-    entity_id: input_select.solar_output_source_priority
-  action:
-    service: mqtt.publish
-    data_template:
-      topic: 'homeassistant/sensor/voltronic'
-      payload: >
-        {% if is_state("input_select.solar_output_source_priority", "POP00 (Utility first)") %}
-          POP00
-        {% elif is_state("input_select.solar_output_source_priority", "POP01 (Solar first)") %}
-          POP01
-        {% elif is_state("input_select.solar_output_source_priority", "POP02 (SBU)") %}
-          POP02
-        {% endif %}
-
-- id: 'set_solar_charge_priority'
-  alias: Stolar Trigger Charge Priority Change
-  trigger:
-    platform: state
-    entity_id: input_select.solar_charger_priority
-  action:
-    service: mqtt.publish
-    data_template:
-      topic: 'homeassistant/sensor/voltronic'
-      payload: >
-        {% if is_state("input_select.solar_charger_priority", "PCP00 (Utility first)") %}
-          PCP00
-        {% elif is_state("input_select.solar_charger_priority", "PCP01 (Solar first)") %}
-          PCP01
-        {% elif is_state("input_select.solar_charger_priority", "PCP02 (Solar and utility)") %}
-          PCP02
-        {% elif is_state("input_select.solar_charger_priority", "PCP03 (Solar only)") %}
-          PCP03
-        {% endif %}
-
-# Auto Switch to 'Solar based charging ONLY at sunrise' (will not charge batteries from the Grid to save power...)
-- id: 'switch_solar_only_charging_am'
-  alias: Auto switch to "Solar Only" charging at Sunrise
-  trigger:
-    - event: sunrise
-      platform: sun
-      offset: "00:15:00"
-  condition: []
-  action:
-    - service: input_select.select_option
-      data:
-        entity_id: input_select.solar_charger_priority
-        option: "PCP01 (Solar first)"
-    - service: input_select.select_option
-      data:
-        entity_id: input_select.solar_output_source_priority
-        option: "POP01 (Solar first)"
-
-- id: 'switch_battery_late_evenings'
-  # Running on UPS mode seems to fuck up the 8 port tplink switch (it drops out from time to time) so it's best that we change mode after 2AM when less people are using Plex etc...
-  alias: Switch to battery preferred output late evenings
-  trigger:
-    - at: '02:00'
-      platform: time
-  condition: []
-  action:
-    - service: input_select.select_option
-      data:
-        entity_id: input_select.solar_output_source_priority
-        option: "POP02 (SBU)"
+# ----- Auto-discovered sensors (sensor.marsriva_*) -----
+#
+# BMS Status (battery's reported view via CAN):
+#   sensor.marsriva_bms_battery_voltage   (V)
+#   sensor.marsriva_bms_battery_current   (A, + = charging / - = discharging)
+#   sensor.marsriva_bms_battery_temp      (°C)
+#   sensor.marsriva_bms_soc               (%)
+#   sensor.marsriva_bms_max_charge_current (A)
+#
+# Battery — inverter's own measurement:
+#   sensor.marsriva_battery_voltage       (V)
+#   sensor.marsriva_battery_current       (A, signed)
+#   sensor.marsriva_battery_remaining_kwh (kWh) [plausible — not confirmed]
+#   sensor.marsriva_charging_active       (0 = idle, 2 = charging)
+#
+# AC Output:
+#   sensor.marsriva_ac_out_voltage        (V)
+#   sensor.marsriva_ac_out_frequency      (Hz)
+#   sensor.marsriva_ac_out_current        (A)
+#   sensor.marsriva_ac_out_power_factor   [plausible — not confirmed]
+#   sensor.marsriva_inverter_output_power (W) [plausible]
+#   sensor.marsriva_inverter_output_va    (VA) [plausible]
+#   sensor.marsriva_inverter_energy_counter [plausible — approx kWh×100]
+#
+# Grid:
+#   sensor.marsriva_grid_voltage          (V, 0 when grid disconnected)
+#   sensor.marsriva_grid_power            (W, 0 when grid disconnected)
+#   sensor.marsriva_grid_frequency        (Hz, 0 when grid disconnected)
+#   sensor.marsriva_grid_energy_counter   [plausible — approx kWh×100]
+#
+# Identity:
+#   sensor.marsriva_serial_number

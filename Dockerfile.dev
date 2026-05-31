@@ -1,18 +1,16 @@
-FROM debian:stretch
+FROM debian:bookworm-slim
 
-RUN apt update && apt install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
-        git \
-        build-essential \
-        cmake \
         jq \
-        mosquitto-clients
+        mosquitto-clients \
+        procps \
+        python3 \
+        python3-serial \
+    && rm -rf /var/lib/apt/lists/*
 
 ADD sources/ /opt/
 ADD config/ /etc/inverter/
-
-RUN cd /opt/inverter-cli && \
-    mkdir bin && cmake . && make && mv inverter_poller bin/
 
 HEALTHCHECK \
     --interval=30s \

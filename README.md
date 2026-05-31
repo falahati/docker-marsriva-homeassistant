@@ -1,149 +1,163 @@
-# A Docker based Home Assistant interface for MPP/Voltronic Solar Inverters 
+# Marsriva MR-SPF6.5K-LP1-TL20E → Home Assistant via MQTT
 
-**Docker Hub:** [`bushrangers/ha-voltronic-mqtt:latest`](https://hub.docker.com/r/bushrangers/ha-voltronic-mqtt/)
-
-![License](https://img.shields.io/github/license/ned-kelly/docker-voltronic-homeassistant.svg) ![Docker Pulls](https://img.shields.io/docker/pulls/bushrangers/ha-voltronic-mqtt.png) ![buildx](https://github.com/ned-kelly/docker-voltronic-homeassistant/workflows/buildx/badge.svg)
-
-----
-
-The following other projects may also run on the same SBC _(using the same style docker setup as this)_, to give you a fully featured solution with other sensors and devices:
-
- - [EPEver MPPT Stats (MQTT, Docker Image)](https://github.com/ned-kelly/docker-epever-homeassistant)
- - [LeChacal.com's CT Clamp Current/Energy Monitors for your Breaker Box](https://github.com/ned-kelly/docker-lechacal-homeassistant)
+A Docker container that reads live data from a **Marsriva MR-SPF6.5K-LP1-TL20E**
+hybrid inverter and publishes it to **Home Assistant** via MQTT auto-discovery.
 
 ---
 
-This project [was derived](https://github.com/manio/skymax-demo) from the 'skymax' [C based monitoring application](https://skyboo.net/2017/03/monitoring-voltronic-power-axpert-mex-inverter-under-linux/) designed to take the monitoring data from Voltronic, Axpert, Mppsolar PIP, Voltacon, Effekta, and other branded OEM Inverters and send it to a [Home Assistant](https://www.home-assistant.io/) MQTT server for ingestion...
+## How it works
 
-The program can also receive commands from Home Assistant (via MQTT) to change the state of the inverter remotely.
+The inverter continuously broadcasts Modbus RTU frames (9600 8N1) on its RS232
+diagnostic port — no commands need to be sent. The container listens on that
+serial port, decodes one complete broadcast cycle (~6 s), and pushes the parsed
+values to your MQTT broker every 30 seconds. Home Assistant picks up the sensors
+automatically through MQTT discovery.
 
-By remotely setting values via MQTT you can implement many more complex forms of automation _(triggered from Home Assistant)_ such as:
+```
+Marsriva RS232 port
+   │  (USB dongle, /dev/ttyUSB0)
+   ▼
+marsriva_poller.py  ──►  JSON on stdout
+   │
+mqtt-push.sh ──►  mosquitto_pub  ──►  MQTT broker  ──►  Home Assistant
+```
 
- - Changing the power mode to '_solar only_' during the day, but then change back to '_grid mode charging_' for your AGM or VLRA batteries in the evenings, but if it's raining (based on data from your weather station), set the charge mode to `PCP02` _(Charge based on 'Solar and Utility')_ so that the following day there's plenty of juice in your batteries...
-
- - Programatically set the charge & float voltages based on additional sensors _(such as a Zigbee [Temperature Sensor](https://www.zigbee2mqtt.io/devices/WSDCGQ11LM.html), or a [DHT-22 + ESP8266](https://github.com/bastianraschke/dht-sensor-esp8266-homeassistant))_ - This way if your battery box is too hot/cold you can dynamically adjust the voltage so that the batteries are not damaged...
-
- - Dynamically adjust the inverter's "solar power balance" and other configuration options to ensure that you get the most "bang for your buck" out of your setup... 
-
---------------------------------------------------
-
-The program is designed to be run in a Docker Container, and can be deployed on a lightweight SBC next to your Inverter (i.e. an Orange Pi Zero running Arabian), and read data via the RS232 or USB ports on the back of the Inverter.
-
-![Example Lovelace Dashboard](images/lovelace-dashboard.jpg "Example Lovelace Dashboard")
-_Example #1: My "Lovelace" dashboard using data collected from the Inverter & the ability to change modes/configuration via MQTT._
-
-![Example Lovelace Dashboard](images/grafana-example.jpg "Example Grafana Dashboard")
-_Example #2: Grafana summary allowing more detailed analysis of data collected, and the ability to 'deep-dive' historical data._
-
+---
 
 ## Prerequisites
 
-- Docker
-- Docker-compose
-- [Voltronic/Axpert/MPPSolar](https://www.ebay.com.au/sch/i.html?_from=R40&_trksid=p2334524.m570.l1313.TR11.TRC1.A0.H0.Xaxpert+inverter.TRS0&_nkw=axpert+inverter&_sacat=0&LH_TitleDesc=0&LH_PrefLoc=2&_osacat=0&_odkw=solar+inverter&LH_TitleDesc=0) based inverter that you want to monitor
-- Home Assistant [running with a MQTT Server](https://www.home-assistant.io/components/mqtt/)
+- Docker + Docker Compose
+- A running MQTT broker accessible from the container (e.g. Mosquitto add-on in HA)
+- MQTT integration enabled in Home Assistant (with auto-discovery on)
+- The inverter connected via an RS232→USB dongle (typically `/dev/ttyUSB0`)
 
+---
 
-## Configuration & Standing Up
+## Setup
 
-It's pretty straightforward, just clone down the sources and set the configuration files in the `config/` directory:
+### 1. Configure MQTT
+
+Edit `config/mqtt.json`:
+
+```json
+{
+    "server": "192.168.1.10",
+    "port": "1883",
+    "topic": "homeassistant",
+    "devicename": "marsriva",
+    "username": "mqtt_user",
+    "password": "mqtt_pass",
+    "clientid": "marsriva_a3f7c1d9e4b2085f",
+    "influx": {
+        "enabled": "false",
+        ...
+    }
+}
+```
+
+Set `server` to your MQTT broker's IP and fill in credentials if required.
+
+### 2. Check the USB device path
+
+The default serial port is `/dev/ttyUSB0`. If your dongle appears on a different
+path, update the `devices` section in `docker-compose.yml` and pass `--port` to the
+poller (edit `mqtt-push.sh` line with `marsriva_poller.py`).
+
+### 3. Start the container
 
 ```bash
-# Clone down sources on the host you want to monitor...
-git clone https://github.com/ned-kelly/docker-voltronic-homeassistant.git /opt/ha-inverter-mqtt-agent
-cd /opt/ha-inverter-mqtt-agent
-
-# Configure the 'device=' directive (in inverter.conf) to suit for RS232 or USB.. 
-vi config/inverter.conf
-
-# Configure your MQTT server's IP/Host Name, Port, Credentials, HA topic, and name of the Inverter that you want displayed in Home Assistant...
-# If your MQTT server does not need a username/password just leave these values empty.
-
-vi config/mqtt.json
+docker compose up -d
 ```
 
-Then, plug in your Serial or USB cable to the Inverter & stand up the container:
+Sensors will appear in Home Assistant under `sensor.marsriva_*` within a minute.
+
+---
+
+## Published sensors
+
+All sensor names follow the pattern `sensor.marsriva_<field>`.
+
+### Confirmed accurate (✓)
+
+| Sensor | Unit | Description |
+|---|---|---|
+| `bms_battery_voltage` | V | Battery voltage (BMS view) |
+| `bms_battery_current` | A | Battery current, + charge / − discharge (BMS view) |
+| `bms_battery_temp` | °C | Battery temperature (BMS reported) |
+| `bms_soc` | % | State of charge (BMS reported) |
+| `bms_max_charge_current` | A | Max charge current requested by BMS |
+| `battery_voltage` | V | Battery voltage (inverter measured) |
+| `battery_current` | A | Battery current (inverter measured, signed) |
+| `charging_active` | — | 0 = not charging, 2 = charging |
+| `ac_out_voltage` | V | AC output voltage |
+| `ac_out_frequency` | Hz | AC output frequency |
+| `ac_out_current` | A | AC output current |
+| `grid_voltage` | V | Grid voltage (0 when grid disconnected) |
+| `grid_power` | W | Grid power (0 when grid disconnected) |
+| `grid_frequency` | Hz | Grid frequency (0 when grid disconnected) |
+| `serial_number` | — | Inverter serial number |
+
+### Plausible — best effort (meaning not fully confirmed)
+
+| Sensor | Unit | Notes |
+|---|---|---|
+| `battery_remaining_kwh` | kWh | Estimated remaining capacity |
+| `ac_out_power_factor` | — | Suspected power factor ÷100 |
+| `inverter_output_power` | W | Output power (may lag LCD slightly) |
+| `inverter_output_va` | VA | Apparent power (may lag LCD slightly) |
+| `inverter_energy_counter` | — | Slow-climbing counter, approx kWh×100 |
+| `grid_energy_counter` | — | Slow-climbing counter, approx kWh×100 |
+
+---
+
+## InfluxDB (optional)
+
+Set `influx.enabled` to `"true"` in `config/mqtt.json` and fill in the
+`host`, `username`, `password`, and `database` fields. Each field will be written
+to the configured measurement using the name in `namingMap`. Rename the values in
+`namingMap` to match your InfluxDB schema if needed.
+
+---
+
+## Testing without hardware
+
+The poller includes a file-replay mode for offline testing:
 
 ```bash
-docker-compose up -d
+# Record a capture on the Pi:
+cat /dev/ttyUSB0 > /tmp/inverter_capture.bin  # Ctrl-C after a few seconds
 
+# Replay on any machine with Python 3:
+python3 sources/marsriva-cli/marsriva_poller.py --file /tmp/inverter_capture.bin
 ```
 
-_**Note:**_
+This prints the same JSON that `mqtt-push.sh` would receive in production.
 
-  - builds on docker hub are currently for `linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/386` -- If you have issues standing up the image on your Linux distribution (i.e. An old Pi/ARM device) you may need to manually build the image to support your local device architecture - This can be done by uncommenting the build flag in your docker-compose.yml file.
-  
-  - The default `docker-compose.yml` file includes Watchtower, which can be  configured to auto-update this image when we push new changes to github - Please **uncomment if you wish to auto-update to the latest builds of this project**.
+---
 
-## Integrating into Home Assistant.
+## Troubleshooting
 
-Providing you have setup [MQTT](https://www.home-assistant.io/components/mqtt/) with Home Assistant, the device will automatically register in your Home Assistant when the container starts for the first time -- You do not need to manually define any sensors.
+**No sensors in HA** — Check that the MQTT broker address is correct in `mqtt.json`
+and that HA has MQTT auto-discovery enabled (`discovery: true` in the MQTT
+integration settings).
 
-From here you can setup [Graphs](https://www.home-assistant.io/lovelace/history-graph/) to display sensor data, and optionally change state of the inverter by "[publishing](https://www.home-assistant.io/docs/mqtt/service/)" a string to the inverter's primary topic like so:
+**Timeout / no data** — Verify the USB dongle is mapped to `/dev/ttyUSB0` inside
+the container (`docker exec marsriva-mqtt ls /dev/ttyUSB0`) and that `privileged:
+true` is set in `docker-compose.yml`.
 
-![Example, Changing the Charge Priority](images/mqtt-publish-packet.png "Example, Changing the Charge Priority")
-_Example: Changing the Charge Priority of the Inverter_
+**Wrong values** — Some "plausible" fields may read incorrectly until the inverter's
+register map is fully validated against your specific firmware. Confirmed fields
+(see table above) are reliable.
 
-**COMMON COMMANDS THAT CAN BE SENT TO THE INVERTER**
+---
 
-_(see [protocol manual](http://forums.aeva.asn.au/uploads/293/HS_MS_MSX_RS232_Protocol_20140822_after_current_upgrade.pdf) for complete list of supported commands)_
+## Protocol notes
 
+The Marsriva MR-SPF6.5K-LP1-TL20E broadcasts Modbus RTU frames at 9600 baud on
+slave address `0x01` with function code `0x03`. It does **not** respond to queries —
+it broadcasts unprompted. A full cycle of ~22 frames repeats every ~6 seconds. The
+22-byte payload frame carries the serial number (ASCII) and marks the start of each
+new cycle.
 
-
-```
-DESCRIPTION:                PAYLOAD:  OPTIONS:
-----------------------------------------------------------------
-Set output source priority  POP00     (Utility first)
-                            POP01     (Solar first)
-                            POP02     (SBU)
-
-Set charger priority        PCP00     (Utility first)
-                            PCP01     (Solar first)
-                            PCP02     (Solar and utility)
-                            PCP03     (Solar only)
-
-Set the Charge/Discharge Levels & Cutoff
-                            PBDV26.9  (Don't discharge the battery unless it is at 26.9v or more)
-                            PBCV24.8  (Switch back to 'grid' when battery below 24.8v)
-                            PBFT27.1  (Set the 'float voltage' to 27.1v)
-                            PCVV28.1  (Set the 'charge voltage' to 28.1v)
-
-Set other commands          PEa / PDa (Enable/disable buzzer)
-                            PEb / PDb (Enable/disable overload bypass)
-                            PEj / PDj (Enable/disable power saving)
-                            PEu / PDu (Enable/disable overload restart);
-                            PEx / PDx (Enable/disable backlight)
-```
-
-*NOTE:* When setting/configuring your charge, discharge, float & cutoff voltages for the first time, it's worth  understanding how to optimize charging conditions to extend service life of your battery: https://batteryuniversity.com/learn/article/charging_the_lead_acid_battery
-
-
-### Using `inverter_poller` binary directly
-
-This project uses heavily modified sources, from [manio's](https://github.com/manio/skymax-demo) original demo, and be compiled to run standalone on Linux, Mac, and Windows (via Cygwin).
-
-Just head to the `sources/inverter-cli` directory and build it directly using: `cmake . && make`.
-
-Basic arguments supported are:
-
-```
-USAGE:  ./inverter_poller <args> [-r <command>], [-h | --help], [-1 | --run-once]
-
-SUPPORTED ARGUMENTS:
-          -r <raw-command>      TX 'raw' command to the inverter
-          -h | --help           This Help Message
-          -1 | --run-once       Runs one iteration on the inverter, and then exits
-          -d                    Additional debugging
-
-```
-
-### Bonus: Lovelace Dashboard Files
-
-_**Please refer to the screenshot above for an example of the dashboard.**_
-
-I've included some Lovelace dashboard files in the `homeassistant/` directory, however you will need to need to adapt to your own Home Assistant configuration and/or name of the inverter if you have changed it in the `mqtt.json` config file.
-
-Note that in addition to merging the sample Yaml files with your Home Assistant, you will need the following custom Lovelace cards installed if you wish to use my templates:
-
- - [vertical-stack-in-card](https://github.com/custom-cards/vertical-stack-in-card)
- - [circle-sensor-card](https://github.com/custom-cards/circle-sensor-card)
+Full register map with decoded field meanings is documented in the source code:
+[`sources/marsriva-cli/marsriva_poller.py`](sources/marsriva-cli/marsriva_poller.py)

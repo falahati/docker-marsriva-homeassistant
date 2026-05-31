@@ -1,18 +1,14 @@
 version: '3'
 
 services:
-  voltronic-mqtt:
+  marsriva-mqtt:
 
-    # We're now (finally) supporting Multi-Arch builds (via Github actions) on Docker Hub!
-    image: bushrangers/ha-voltronic-mqtt
+    # Build locally from Dockerfile.dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
 
-    # Uncomment if you want to build your own local version.
-    #build:
-    #  context: .
-    #  dockerfile: Dockerfile.dev
-
-
-    container_name: voltronic-mqtt
+    container_name: marsriva-mqtt
 
     privileged: true
     restart: always
@@ -21,22 +17,10 @@ services:
         - ./config/:/etc/inverter/
 
     devices:
-    #  - "/dev/mem:/dev/mem"
-
-    # USB Port Mapping
-      - /dev/bus/usb:/dev/bus/usb:rwm
       - /dev/ttyUSB0:/dev/ttyUSB0:rwm
-      - /dev/ttyUSB1:/dev/ttyUSB1:rwm
 
-    # Serial Port Mapping...
-      - /dev/ttyS0:/dev/ttyS0
-      - /dev/ttyS1:/dev/ttyS1
-      - /dev/ttyS2:/dev/ttyS2
-
-  # Used to auto-update images as we release new versions...
+  # Used to auto-update images when new versions are released
   watchtower:
-    # Please see the following for configuration options:
-    #    https://containrrr.github.io/watchtower/container-selection/
     image: containrrr/watchtower
     container_name: watchtower
 
@@ -47,4 +31,3 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
     command: --interval 500
-
